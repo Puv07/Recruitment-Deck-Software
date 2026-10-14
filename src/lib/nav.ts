@@ -41,7 +41,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Candidates", href: "/candidates", icon: Users, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive"], ready: true },
   { label: "Interviews", href: "/interviews", icon: CalendarClock, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "centre_manager"], ready: true },
   { label: "Offers & Joining", href: "/offers", icon: FileSignature, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_operations"], ready: true },
-  { label: "Employee Directory", href: "/employees", icon: Contact, roles: ["super_admin", "hr_head", "hr_executive", "hr_operations", "centre_manager"], ready: false },
+  { label: "Employee Directory", href: "/employees", icon: Contact, roles: ["super_admin", "hr_head", "hr_executive", "hr_operations", "centre_manager"], ready: true },
   { label: "Onboarding & Offboarding", href: "/onboarding", icon: UserCheck, roles: ["super_admin", "hr_head", "hr_executive", "hr_operations"], ready: false },
   { label: "Attendance", href: "/attendance", icon: Clock, roles: ["super_admin", "hr_head", "hr_operations", "centre_manager"], ready: false },
   { label: "Leave Management", href: "/leave", icon: CalendarOff, roles: ["super_admin", "hr_head", "hr_executive", "hr_operations", "centre_manager"], ready: false },
