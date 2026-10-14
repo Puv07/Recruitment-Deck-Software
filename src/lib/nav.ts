@@ -35,8 +35,8 @@ const ALL: Role[] = [
 export const NAV_ITEMS: NavItem[] = [
   { label: "Overview", href: "/", icon: LayoutDashboard, roles: ALL, ready: true },
   { label: "My Work", href: "/my-work", icon: ClipboardList, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "hr_operations", "centre_manager"], ready: false },
-  { label: "Task Command Centre", href: "/tasks", icon: ListTodo, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "hr_operations", "centre_manager"], ready: false },
-  { label: "Manpower Planner", href: "/manpower", icon: Building2, roles: ["super_admin", "hr_head", "recruitment_lead", "centre_manager", "leadership"], ready: false },
+  { label: "Task Command Centre", href: "/tasks", icon: ListTodo, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "hr_operations", "centre_manager"], ready: true },
+  { label: "Manpower Planner", href: "/manpower", icon: Building2, roles: ["super_admin", "hr_head", "recruitment_lead", "centre_manager", "leadership"], ready: true },
   { label: "Recruitment", href: "/recruitment", icon: Briefcase, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive"], ready: false },
   { label: "Candidates", href: "/candidates", icon: Users, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive"], ready: false },
   { label: "Interviews", href: "/interviews", icon: CalendarClock, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "centre_manager"], ready: false },
