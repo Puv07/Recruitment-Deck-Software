@@ -39,7 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Manpower Planner", href: "/manpower", icon: Building2, roles: ["super_admin", "hr_head", "recruitment_lead", "centre_manager", "leadership"], ready: true },
   { label: "Recruitment", href: "/recruitment", icon: Briefcase, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive"], ready: true },
   { label: "Candidates", href: "/candidates", icon: Users, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive"], ready: true },
-  { label: "Interviews", href: "/interviews", icon: CalendarClock, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "centre_manager"], ready: false },
+  { label: "Interviews", href: "/interviews", icon: CalendarClock, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "centre_manager"], ready: true },
   { label: "Offers & Joining", href: "/offers", icon: FileSignature, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_operations"], ready: false },
   { label: "Employee Directory", href: "/employees", icon: Contact, roles: ["super_admin", "hr_head", "hr_executive", "hr_operations", "centre_manager"], ready: false },
   { label: "Onboarding & Offboarding", href: "/onboarding", icon: UserCheck, roles: ["super_admin", "hr_head", "hr_executive", "hr_operations"], ready: false },
