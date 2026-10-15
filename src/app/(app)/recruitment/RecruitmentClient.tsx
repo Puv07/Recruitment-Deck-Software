@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, X } from "lucide-react";
+import { ArrowLeft, Plus, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Role } from "@/lib/nav";
 
@@ -11,6 +12,7 @@ type Vacancy = {
   title: string;
   centre_id: string;
   department_id: string | null;
+  category_id: string | null;
   positions: number;
   employment_type: string;
   qualifications: string | null;
@@ -30,6 +32,21 @@ type Person = { id: string; full_name: string | null; email: string | null };
 const PRIORITIES = ["Critical", "High", "Medium", "Low"];
 const TYPES = ["Full-time", "Part-time", "Contract", "Internship"];
 const APPROVALS = ["Draft", "Pending Approval", "Approved", "Rejected", "Closed"];
+const STAGES = [
+  "New",
+  "Contacted",
+  "Screening",
+  "Interview Scheduled",
+  "Interview Completed",
+  "Selected",
+  "Offer Released",
+  "Offer Accepted",
+  "Joined",
+  "On Hold",
+  "Rejected",
+  "Withdrawn",
+  "Did Not Join",
+];
 
 const APPROVAL_STYLE: Record<string, string> = {
   Draft: "bg-slate-100 text-slate-600",
@@ -50,6 +67,10 @@ const inputCls =
 
 export default function RecruitmentClient({
   role,
+  heading,
+  fixedCategory,
+  defaultCategoryId,
+  categories,
   vacancies,
   candidates,
   centres,
@@ -58,6 +79,10 @@ export default function RecruitmentClient({
   loadError,
 }: {
   role: Role;
+  heading: string;
+  fixedCategory: boolean;
+  defaultCategoryId: string | null;
+  categories: Named[];
   vacancies: Vacancy[];
   candidates: CandLite[];
   centres: Named[];
@@ -77,6 +102,7 @@ export default function RecruitmentClient({
 
   const centreName = (id: string) => centres.find((c) => c.id === id)?.name ?? "-";
   const deptName = (id: string | null) => departments.find((d) => d.id === id)?.name ?? "-";
+  const categoryName = (id: string | null) => categories.find((c) => c.id === id)?.name ?? "Uncategorised";
   const personName = (id: string | null) => {
     if (!id) return "Unassigned";
     const p = people.find((x) => x.id === id);
@@ -93,11 +119,21 @@ export default function RecruitmentClient({
   const selected = vacancies.find((v) => v.id === selectedId) ?? null;
   const open = vacancies.filter((v) => v.approval_status === "Approved");
 
+  const vacIds = new Set(vacancies.map((v) => v.id));
+  const inView = candidates.filter((c) => c.vacancy_id && vacIds.has(c.vacancy_id));
+
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <Link
+        href="/recruitment"
+        className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline"
+      >
+        <ArrowLeft className="h-4 w-4" /> All categories
+      </Link>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Recruitment</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">{heading}</h1>
           <p className="mt-1 text-sm text-slate-500">Vacancies and their approval status.</p>
         </div>
         {canEdit && (
@@ -120,7 +156,7 @@ export default function RecruitmentClient({
           <p className="mt-2 text-3xl font-semibold text-slate-900">{open.length}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Positions to fill</p>
+          <p className="text-sm text-slate-500">Approved positions</p>
           <p className="mt-2 text-3xl font-semibold text-slate-900">
             {open.reduce((s, v) => s + v.positions, 0)}
           </p>
@@ -131,6 +167,28 @@ export default function RecruitmentClient({
             {vacancies.filter((v) => v.approval_status === "Pending Approval").length}
           </p>
         </div>
+      </div>
+
+      <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-sm font-semibold text-slate-900">Candidate pipeline ({inView.length})</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {STAGES.map((s) => {
+            const n = inView.filter((c) => c.status === s).length;
+            return (
+              <span
+                key={s}
+                className={`rounded-lg px-3 py-1.5 text-xs ${
+                  n > 0 ? "bg-indigo-50 text-indigo-800" : "bg-slate-50 text-slate-400"
+                }`}
+              >
+                <span className="font-semibold">{n}</span> {s}
+              </span>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs text-slate-400">
+          Only candidates linked to these vacancies are counted, and only ones you are allowed to see.
+        </p>
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -160,7 +218,7 @@ export default function RecruitmentClient({
       <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         {rows.length === 0 ? (
           <p className="p-8 text-center text-sm text-slate-500">
-            {vacancies.length === 0 ? "No vacancies yet. Click New vacancy to create one." : "No vacancies match these filters."}
+            {vacancies.length === 0 ? "No vacancies here yet. Click New vacancy to create one." : "No vacancies match these filters."}
           </p>
         ) : (
           <table className="w-full text-left text-sm">
@@ -184,7 +242,10 @@ export default function RecruitmentClient({
                   <tr key={v.id} onClick={() => setSelectedId(v.id)} className="cursor-pointer hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <p className="font-medium text-slate-900">{v.title}</p>
-                      <p className="text-xs text-slate-500">{deptName(v.department_id)} - {v.employment_type}</p>
+                      <p className="text-xs text-slate-500">
+                        {!fixedCategory && `${categoryName(v.category_id)} - `}
+                        {deptName(v.department_id)} - {v.employment_type}
+                      </p>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{centreName(v.centre_id)}</td>
                     <td className="px-4 py-3 text-right text-slate-700">{v.positions}</td>
@@ -205,13 +266,12 @@ export default function RecruitmentClient({
           </table>
         )}
       </div>
-      <p className="mt-2 text-xs text-slate-400">
-        Candidate counts only include candidates you are allowed to see.
-      </p>
 
       {showAdd && (
         <VacancyForm
           mode="new"
+          categories={categories}
+          defaultCategoryId={defaultCategoryId}
           centres={centres}
           departments={departments}
           people={people}
@@ -228,6 +288,8 @@ export default function RecruitmentClient({
           key={selected.id}
           mode="edit"
           vacancy={selected}
+          categories={categories}
+          defaultCategoryId={defaultCategoryId}
           centres={centres}
           departments={departments}
           people={people}
@@ -247,6 +309,8 @@ export default function RecruitmentClient({
 function VacancyForm({
   mode,
   vacancy,
+  categories,
+  defaultCategoryId,
   centres,
   departments,
   people,
@@ -257,6 +321,8 @@ function VacancyForm({
 }: {
   mode: "new" | "edit";
   vacancy?: Vacancy;
+  categories: Named[];
+  defaultCategoryId: string | null;
   centres: Named[];
   departments: Named[];
   people: Person[];
@@ -268,6 +334,7 @@ function VacancyForm({
   const supabase = useMemo(() => createClient(), []);
   const v = vacancy;
   const [title, setTitle] = useState(v?.title ?? "");
+  const [categoryId, setCategoryId] = useState(v ? v.category_id ?? "" : defaultCategoryId ?? "");
   const [centreId, setCentreId] = useState(v?.centre_id ?? "");
   const [deptId, setDeptId] = useState(v?.department_id ?? "");
   const [positions, setPositions] = useState(String(v?.positions ?? 1));
@@ -289,6 +356,7 @@ function VacancyForm({
     setError("");
     const row = {
       title: title.trim(),
+      category_id: categoryId || null,
       centre_id: centreId,
       department_id: deptId || null,
       positions: Math.max(1, parseInt(positions || "1", 10) || 1),
@@ -329,6 +397,14 @@ function VacancyForm({
 
         <label className="mt-4 block text-sm font-medium text-slate-700">Job title</label>
         <input disabled={dis} value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
+
+        <label className="mt-4 block text-sm font-medium text-slate-700">Role category</label>
+        <select disabled={dis} value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={inputCls}>
+          <option value="">Uncategorised</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div>

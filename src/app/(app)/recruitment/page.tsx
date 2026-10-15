@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import RecruitmentClient from "./RecruitmentClient";
-import type { Role } from "@/lib/nav";
+import RecruitmentHome from "./RecruitmentHome";
+
+const ALLOWED = ["super_admin", "hr_head", "recruitment_lead", "hr_executive"];
 
 export default async function RecruitmentPage() {
   const supabase = await createClient();
@@ -10,24 +11,28 @@ export default async function RecruitmentPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [meRes, vacRes, candRes, centresRes, deptRes, peopleRes] = await Promise.all([
-    supabase.from("profiles").select("role").eq("id", user.id).single(),
-    supabase.from("vacancies").select("*").order("created_at", { ascending: false }),
-    supabase.from("candidates").select("id, vacancy_id, status").limit(2000),
-    supabase.from("centres").select("id, name").order("name"),
-    supabase.from("departments").select("id, name").order("name"),
-    supabase.from("profiles").select("id, full_name, email").order("full_name"),
+  const meRes = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const role = meRes.data?.role ?? "hr_executive";
+  if (!ALLOWED.includes(role)) redirect("/");
+
+  const [catRes, vacRes, candRes] = await Promise.all([
+    supabase
+      .from("job_categories")
+      .select("id, name, slug, sort_order")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("name"),
+    supabase.from("vacancies").select("id, category_id, positions, approval_status"),
+    supabase.from("candidates").select("id, vacancy_id, status").limit(5000),
   ]);
 
   return (
-    <RecruitmentClient
-      role={(meRes.data?.role ?? "hr_executive") as Role}
+    <RecruitmentHome
+      canManage={["super_admin", "hr_head"].includes(role)}
+      categories={catRes.data ?? []}
       vacancies={vacRes.data ?? []}
       candidates={candRes.data ?? []}
-      centres={centresRes.data ?? []}
-      departments={deptRes.data ?? []}
-      people={peopleRes.data ?? []}
-      loadError={vacRes.error?.message ?? ""}
+      loadError={catRes.error?.message ?? vacRes.error?.message ?? ""}
     />
   );
 }
