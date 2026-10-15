@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, ListTodo, Briefcase, Users, CalendarClock,
+  LayoutDashboard, ListTodo, Briefcase, Megaphone, Users, CalendarClock,
   FileSignature, CheckSquare, Mail, BarChart3, Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -40,6 +40,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Overview", href: "/", icon: LayoutDashboard, roles: ALL, ready: true },
   { label: "Task Command Centre", href: "/tasks", icon: ListTodo, roles: WORKERS, ready: true },
   { label: "Recruitment", href: "/recruitment", icon: Briefcase, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive"], ready: true },
+  { label: "Job Postings", href: "/postings", icon: Megaphone, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive"], ready: true },
   { label: "Candidates", href: "/candidates", icon: Users, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive"], ready: true },
   { label: "Interviews", href: "/interviews", icon: CalendarClock, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "centre_manager"], ready: true },
   { label: "Offers & Joining", href: "/offers", icon: FileSignature, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_operations"], ready: true },

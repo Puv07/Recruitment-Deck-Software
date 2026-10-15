@@ -42,3 +42,20 @@ export const SCORE_CRITERIA = [
 ] as const;
 
 export type ScoreKey = (typeof SCORE_CRITERIA)[number]["key"];
+
+// Where jobs are posted. Edit this list to match the channels you use.
+export const POSTING_PLATFORMS = [
+  "Naukri",
+  "LinkedIn",
+  "Indeed",
+  "Apna",
+  "WorkIndia",
+  "Facebook",
+  "Instagram",
+  "WhatsApp group",
+  "Company website",
+  "Employee referral",
+  "Walk-in drive",
+  "Consultancy",
+  "Other",
+];
