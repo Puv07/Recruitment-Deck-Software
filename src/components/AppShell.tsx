@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronsLeft, ChevronsRight, LogOut, Menu, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { NAV_ITEMS, ROLE_LABELS, type Role } from "@/lib/nav";
+import NotificationBell from "./NotificationBell";
 
 type Props = {
   fullName: string;
@@ -143,6 +144,7 @@ export default function AppShell({ fullName, email, role, children }: Props) {
           <h2 className="flex-1 truncate text-base font-semibold text-slate-900">
             {current?.label ?? "SPARRC HR"}
           </h2>
+          <NotificationBell />
           <span className="hidden rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 sm:inline">
             {ROLE_LABELS[role]}
           </span>
