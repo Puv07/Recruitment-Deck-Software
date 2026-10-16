@@ -242,6 +242,7 @@ export default function RecruitmentClient({
                   <tr key={v.id} onClick={() => setSelectedId(v.id)} className="cursor-pointer hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <p className="font-medium text-slate-900">{v.title}</p>
+<Link href={`/recruitment/vacancy/${v.id}`} onClick={(e) => e.stopPropagation()} className="text-xs font-medium text-indigo-600 hover:underline">Open pipeline</Link>
                       <p className="text-xs text-slate-500">
                         {!fixedCategory && `${categoryName(v.category_id)} - `}
                         {deptName(v.department_id)} - {v.employment_type}

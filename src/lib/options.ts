@@ -59,3 +59,19 @@ export const POSTING_PLATFORMS = [
   "Consultancy",
   "Other",
 ];
+
+// Why a candidate leaves the pipeline. Edit this list to match your reasons.
+export const DROP_REASONS = [
+  "Salary expectation",
+  "Location or distance",
+  "Better offer elsewhere",
+  "Not interested",
+  "No response",
+  "Skills gap",
+  "Failed interview",
+  "Communication",
+  "Notice period too long",
+  "Personal or family reasons",
+  "Role mismatch",
+  "Other",
+];
