@@ -37,7 +37,7 @@ const WORKERS: Role[] = [
 ];
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Overview", href: "/", icon: LayoutDashboard, roles: ALL, ready: true },
+  { label: "Dashboard", href: "/", icon: LayoutDashboard, roles: ALL, ready: true },
   { label: "Task Command Centre", href: "/tasks", icon: ListTodo, roles: WORKERS, ready: true },
   { label: "Recruitment", href: "/recruitment", icon: Briefcase, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive"], ready: true },
   { label: "Job Postings", href: "/postings", icon: Megaphone, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive"], ready: true },
