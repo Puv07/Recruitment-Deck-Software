@@ -481,6 +481,11 @@ function OfferDrawer({
       notes: notes.trim() || null,
     };
 
+        if (next.offer_status === "Accepted" && !next.expected_joining_date) {
+      setMsg({ ok: false, text: "Enter the expected date of joining above before marking the offer as Accepted." });
+      setSaving(false);
+      return;
+    }
     const changes: string[] = [];
     if ((o.proposed_compensation ?? null) !== next.proposed_compensation) changes.push("Compensation updated");
     if ((o.issue_date ?? "") !== (next.issue_date ?? "")) changes.push(`Issue date: ${o.issue_date ?? "none"} to ${next.issue_date ?? "none"}`);

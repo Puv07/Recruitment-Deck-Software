@@ -35,6 +35,7 @@ export default function NotificationBell() {
     await supabase.rpc("generate_my_reminders");
     await supabase.rpc("generate_my_reminders");
     await supabase.rpc("generate_posting_reminders");
+        await supabase.rpc("generate_joining_reminders");
     await load();
     await load();
   }, [supabase, load]);

@@ -32,12 +32,13 @@ type Person = { id: string; full_name: string | null; email: string | null };
 const PRIORITIES = ["Critical", "High", "Medium", "Low"];
 const TYPES = ["Full-time", "Part-time", "Contract", "Internship"];
 const APPROVALS = ["Draft", "Pending Approval", "Approved", "Rejected", "Closed"];
+
 const STAGES = [
-  "New",
-  "Contacted",
-  "Screening",
-  "Interview Scheduled",
-  "Interview Completed",
+  "Applied",
+  "HR Screening",
+  "Assessment",
+  "Technical Interview",
+  "Final Interview",
   "Selected",
   "Offer Released",
   "Offer Accepted",

@@ -38,40 +38,40 @@ type Posting = {
 };
 type Toast = { ok: boolean; text: string } | null;
 
-const QUALIFIED = [
-  "New",
-  "Contacted",
-  "Screening",
-  "Interview Scheduled",
-  "Interview Completed",
-  "Selected",
-  "Offer Released",
-  "Offer Accepted",
-  "Joined",
-  "On Hold",
-];
+   const QUALIFIED = [
+     "Applied",
+     "HR Screening",
+     "Assessment",
+     "Technical Interview",
+     "Final Interview",
+     "Selected",
+     "Offer Released",
+     "Offer Accepted",
+     "Joined",
+     "On Hold",
+   ];
 const DISQUALIFIED = ["Rejected", "Withdrawn", "Did Not Join"];
 const OFFER_STAGES = ["Offer Released", "Offer Accepted"];
-const LOCKED_TARGETS = ["Offer Released", "Offer Accepted", "Joined"];
+   const LOCKED_TARGETS = ["Offer Released", "Joined"];
 const REASON_STAGES = ["Rejected", "Withdrawn", "Did Not Join", "On Hold"];
 const REASON_REQUIRED = ["Rejected", "Withdrawn", "Did Not Join"];
 const CLOSED = ["Joined", "Rejected", "Withdrawn", "Did Not Join"];
 
-const STAGE_COLOR: Record<string, string> = {
-  New: "#64748b",
-  Contacted: "#0ea5e9",
-  Screening: "#ec4899",
-  "Interview Scheduled": "#f59e0b",
-  "Interview Completed": "#14b8a6",
-  Selected: "#3b82f6",
-  "Offer Released": "#8b5cf6",
-  "Offer Accepted": "#6366f1",
-  Joined: "#10b981",
-  "On Hold": "#f97316",
-  Rejected: "#ef4444",
-  Withdrawn: "#94a3b8",
-  "Did Not Join": "#a855f7",
-};
+   const STAGE_COLOR: Record<string, string> = {
+     Applied: "#64748b",
+     "HR Screening": "#ec4899",
+     Assessment: "#0ea5e9",
+     "Technical Interview": "#f59e0b",
+     "Final Interview": "#14b8a6",
+     Selected: "#3b82f6",
+     "Offer Released": "#8b5cf6",
+     "Offer Accepted": "#6366f1",
+     Joined: "#10b981",
+     "On Hold": "#f97316",
+     Rejected: "#ef4444",
+     Withdrawn: "#94a3b8",
+     "Did Not Join": "#a855f7",
+   };
 
 const AVATARS = [
   "bg-blue-100 text-blue-700",
@@ -145,11 +145,12 @@ export default function VacancyPipelineClient({
   const [q, setQ] = useState("");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
-  const [bulkTarget, setBulkTarget] = useState("Contacted");
+  const [bulkTarget, setBulkTarget] = useState("HR Screening");
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [pending, setPending] = useState<{ ids: string[]; target: string } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+     const [accepting, setAccepting] = useState<Cand | null>(null);
   const [toast, setToast] = useState<Toast>(null);
   const [now, setNow] = useState<number | null>(null);
 
@@ -165,12 +166,12 @@ export default function VacancyPipelineClient({
   const visible = cands.filter((c) => !q || c.full_name.toLowerCase().includes(q.toLowerCase()));
   const qualifiedCount = visible.filter((c) => QUALIFIED.includes(c.status)).length;
   const disqualifiedCount = visible.filter((c) => DISQUALIFIED.includes(c.status)).length;
-  const stages = view === "qualified" ? QUALIFIED : DISQUALIFIED;
+     const stages = view === "qualified" ? [...QUALIFIED, "Rejected"] : DISQUALIFIED;
 
   const dragStrip =
     view === "qualified"
       ? { label: "Drop here to disqualify", targets: DISQUALIFIED }
-      : { label: "Drop here to re-open", targets: ["New", "Contacted", "Screening"] };
+      : { label: "Drop here to re-open", targets: ["Applied", "HR Screening", "Assessment"] };
 
   function toggle(id: string) {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -232,6 +233,15 @@ export default function VacancyPipelineClient({
 
   function attemptMove(ids: string[], target: string) {
     if (!canEdit) return;
+           if (target === "Offer Accepted") {
+         if (ids.length !== 1) {
+           setToast({ ok: false, text: "Move candidates to Offer Accepted one at a time, so each gets a joining date." });
+           return;
+         }
+         const only = cands.find((c) => c.id === ids[0]);
+         if (only && only.status !== "Offer Accepted") setAccepting(only);
+         return;
+       }
     if (LOCKED_TARGETS.includes(target)) {
       setToast({
         ok: false,
@@ -604,7 +614,7 @@ export default function VacancyPipelineClient({
           <span className="text-sm font-medium text-slate-800">{selected.length} selected</span>
           <select value={bulkTarget} onChange={(e) => setBulkTarget(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
             {[...QUALIFIED, ...DISQUALIFIED]
-              .filter((s) => !LOCKED_TARGETS.includes(s))
+                 .filter((s) => !LOCKED_TARGETS.includes(s) && s !== "Offer Accepted")
               .map((s) => (
                 <option key={s}>{s}</option>
               ))}
@@ -646,6 +656,17 @@ export default function VacancyPipelineClient({
         />
       )}
 
+               {accepting && (
+           <AcceptOfferModal
+             candidate={accepting}
+             onClose={() => setAccepting(null)}
+             onDone={() => {
+               setToast({ ok: true, text: `${accepting.full_name} moved to Offer Accepted. A joining reminder is scheduled.` });
+               setAccepting(null);
+               router.refresh();
+             }}
+           />
+         )}
       {showAdd && (
         <QuickAddModal
           userId={userId}
@@ -766,7 +787,7 @@ function QuickAddModal({
         category_id: vacancy.category_id,
         position_applied: vacancy.title,
         recruiter_id: userId,
-        status: "New",
+        status: "Applied",
       })
       .select("id")
       .single();
@@ -777,7 +798,7 @@ function QuickAddModal({
     }
     await supabase
       .from("candidate_stage_history")
-      .insert({ candidate_id: data.id, from_status: null, to_status: "New", note: "Candidate added" });
+      .insert({ candidate_id: data.id, from_status: null, to_status: "Applied", note: "Candidate added" });
     onDone();
   }
 
@@ -826,6 +847,118 @@ function QuickAddModal({
             {saving ? "Saving..." : "Add candidate"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+function AcceptOfferModal({
+  candidate,
+  onClose,
+  onDone,
+}: {
+  candidate: Cand;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const [offer, setOffer] = useState<
+    { id: string; offer_status: string; approval_status: string; expected_joining_date: string | null } | null | undefined
+  >(undefined);
+  const [date, setDate] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from("offers")
+      .select("id, offer_status, approval_status, expected_joining_date")
+      .eq("candidate_id", candidate.id)
+      .not("offer_status", "in", "(Declined,Expired,Withdrawn)")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active) return;
+        setOffer(data ?? null);
+        if (data?.expected_joining_date) setDate(data.expected_joining_date);
+      });
+    return () => {
+      active = false;
+    };
+  }, [candidate.id, supabase]);
+
+  async function confirm() {
+    if (!offer || !date) return;
+    setSaving(true);
+    setError("");
+    const { error } = await supabase.rpc("accept_offer", { p_offer_id: offer.id, p_joining_date: date });
+    if (error) {
+      setError(error.message);
+      setSaving(false);
+      return;
+    }
+    onDone();
+  }
+
+  let problem = "";
+  if (offer === null) {
+    problem =
+      "No active offer was found for this candidate, or your role cannot see offers. Create and approve the offer in Offers & Joining first.";
+  } else if (offer && offer.approval_status !== "Approved") {
+    problem = "This offer is not approved yet. Get it approved in Offers & Joining first.";
+  } else if (offer && offer.offer_status !== "Released") {
+    problem = `This offer is ${offer.offer_status}. Mark it Released in Offers & Joining before recording that it was accepted.`;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900">Offer accepted</h2>
+          <button onClick={onClose} className="rounded p-1 text-slate-500 hover:bg-slate-100" aria-label="Close">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-slate-600">{candidate.full_name}</p>
+
+        {offer === undefined && <p className="mt-4 text-sm text-slate-500">Checking the offer...</p>}
+
+        {problem && (
+          <>
+            <p className="mt-4 rounded-lg bg-yellow-50 p-3 text-sm text-yellow-800">{problem}</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Close
+              </button>
+              <Link href="/offers" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+                Open Offers &amp; Joining
+              </Link>
+            </div>
+          </>
+        )}
+
+        {offer && !problem && (
+          <>
+            <label className="mt-4 block text-sm font-medium text-slate-700">Date of joining</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+            <p className="mt-2 text-xs text-slate-500">
+              HR gets a reminder on this date with the candidate&apos;s details and branch. Joining itself is still confirmed
+              separately in Offers &amp; Joining.
+            </p>
+            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Cancel
+              </button>
+              <button
+                onClick={confirm}
+                disabled={saving || !date}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Confirm accepted"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

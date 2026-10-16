@@ -24,7 +24,7 @@ type CandLite = { id: string; full_name: string; status: string };
 type Person = { id: string; full_name: string | null; email: string | null };
 type EventRow = { id: string; author_id: string; body: string; created_at: string };
 
-const ROUNDS = ["Screening", "Round 1", "Round 2", "Final round", "HR round"];
+const ROUNDS = ["HR Screening", "Assessment", "Technical Interview", "Final Interview"];
 const MODES = ["In person", "Video", "Phone"];
 const STATUSES = ["Scheduled", "Completed", "Cancelled", "No Show"];
 const OUTCOMES = ["Pending", "Recommend", "Do not recommend", "On hold"];
@@ -246,7 +246,7 @@ function NewInterviewModal({
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [candidateId, setCandidateId] = useState("");
-  const [round, setRound] = useState("Round 1");
+  const [round, setRound] = useState("HR Screening");
   const [interviewerId, setInterviewerId] = useState(userId);
   const [when, setWhen] = useState("");
   const [mode, setMode] = useState("In person");
@@ -283,20 +283,24 @@ function NewInterviewModal({
       .insert({ interview_id: data.id, body: `Interview scheduled for ${fmt(iso)} (${round})` });
 
     if (["New", "Contacted", "Screening"].includes(cand.status)) {
-      const moved = await supabase
-        .from("candidates")
-        .update({ status: "Interview Scheduled" })
-        .eq("id", cand.id)
-        .select("id");
-      if (moved.data && moved.data.length > 0) {
-        await supabase.from("candidate_stage_history").insert({
-          candidate_id: cand.id,
-          from_status: cand.status,
-          to_status: "Interview Scheduled",
-          note: `${round} scheduled`,
-        });
-      }
-    }
+       const order = ["Applied", "HR Screening", "Assessment", "Technical Interview", "Final Interview"];
+       const from = order.indexOf(cand.status);
+       const to = order.indexOf(round);
+       if (from !== -1 && to !== -1 && from < to) {
+         const moved = await supabase
+           .from("candidates")
+           .update({ status: round })
+           .eq("id", cand.id)
+           .select("id");
+         if (moved.data && moved.data.length > 0) {
+           await supabase.from("candidate_stage_history").insert({
+             candidate_id: cand.id,
+             from_status: cand.status,
+             to_status: round,
+             note: `${round} scheduled`,
+           });
+         }
+       }
     onDone();
   }
 
@@ -466,23 +470,6 @@ function InterviewDrawer({
     }
     await supabase.from("interview_events").insert({ interview_id: iv.id, body: changes.join("; ") });
 
-    // When an interview is marked Completed, move the candidate on (never auto-select or reject)
-    const cand = candidates.find((c) => c.id === iv.candidate_id);
-    if (iv.status !== "Completed" && next.status === "Completed" && cand?.status === "Interview Scheduled") {
-      const moved = await supabase
-        .from("candidates")
-        .update({ status: "Interview Completed" })
-        .eq("id", cand.id)
-        .select("id");
-      if (moved.data && moved.data.length > 0) {
-        await supabase.from("candidate_stage_history").insert({
-          candidate_id: cand.id,
-          from_status: "Interview Scheduled",
-          to_status: "Interview Completed",
-          note: `${iv.round} completed`,
-        });
-      }
-    }
 
     await loadEvents();
     router.refresh();

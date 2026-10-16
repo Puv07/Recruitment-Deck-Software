@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import StageFeedback from "./StageFeedback";
 import {
   CALL_OUTCOMES,
   CALL_RESPONSES,
@@ -66,15 +67,15 @@ type HistoryRow = {
 type Msg = { ok: boolean; text: string } | null;
 
 const MAIN_STAGES = [
-  "New",
-  "Contacted",
-  "Screening",
-  "Interview Scheduled",
-  "Interview Completed",
-  "Selected",
-  "Offer Released",
-  "Offer Accepted",
-  "Joined",
+     "Applied",
+     "HR Screening",
+     "Assessment",
+     "Technical Interview",
+     "Final Interview",
+     "Selected",
+     "Offer Released",
+     "Offer Accepted",
+     "Joined",
 ];
 const OTHER_STAGES = ["On Hold", "Rejected", "Withdrawn", "Did Not Join"];
 const ALL_STAGES = [...MAIN_STAGES, ...OTHER_STAGES];
@@ -687,7 +688,7 @@ function AddCandidateModal({
     setError("");
     const { data, error } = await supabase
       .from("candidates")
-      .insert({ ...toRow(f), status: "New" })
+      .insert({ ...toRow(f), status: "Applied" })
       .select("id")
       .single();
     if (error || !data) {
@@ -697,7 +698,7 @@ function AddCandidateModal({
     }
     await supabase
       .from("candidate_stage_history")
-      .insert({ candidate_id: data.id, from_status: null, to_status: "New", note: "Candidate added" });
+      .insert({ candidate_id: data.id, from_status: null, to_status: "Applied", note: "Candidate added" });
     onDone();
   }
 
@@ -760,7 +761,7 @@ function CandidateDrawer({
   const supabase = useMemo(() => createClient(), []);
   const c = candidate;
 
-  const [tab, setTab] = useState<"profile" | "scores" | "calls" | "history">("profile");
+  const [tab, setTab] =    useState<"profile" | "feedback" | "scores" | "calls" | "history">("profile");
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [calls, setCalls] = useState<Call[]>([]);
   const [assessList, setAssessList] = useState<Assessment[]>([]);
@@ -942,6 +943,7 @@ function CandidateDrawer({
           {(
             [
               ["profile", "Profile"],
+              ["feedback", "Stage feedback"],
               ["scores", "Scores"],
               ["calls", `Calls (${calls.length})`],
               ["history", "Stage history"],
@@ -992,6 +994,9 @@ function CandidateDrawer({
           </div>
         )}
 
+                   {tab === "feedback" && (
+             <StageFeedback candidate={c} personName={personName} onChanged={() => router.refresh()} />
+           )}
         {tab === "scores" && (
           <div className="mt-4">
             {latest ? (

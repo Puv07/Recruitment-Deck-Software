@@ -75,3 +75,22 @@ export const DROP_REASONS = [
   "Role mismatch",
   "Other",
 ];
+
+// Reasons shown in the Stage feedback tab. Edit these lists freely.
+export const FORWARD_REASONS = [
+  "Meets all requirements",
+  "Meets requirements, subject to conditions",
+  "Strong communication",
+  "Strong technical skills",
+  "Good cultural fit",
+  "Other",
+];
+
+export const HOLD_REASONS = [
+  "Waiting for another candidate",
+  "Waiting for vacancy approval",
+  "Candidate unavailable",
+  "Salary discussion pending",
+  "Documents pending",
+  "Other",
+];

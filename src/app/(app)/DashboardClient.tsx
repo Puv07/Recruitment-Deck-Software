@@ -62,14 +62,16 @@ type Tab = "overview" | "recruiters" | "sources" | "tasks";
 /* ---------- constants ---------- */
 
 const PIPE_SLICES = [
-  { label: "New", stages: ["New"], color: "#38bdf8" },
-  { label: "Contacted", stages: ["Contacted"], color: "#1d6fd8" },
-  { label: "Screening", stages: ["Screening"], color: "#8a9bb8" },
-  { label: "Interviews", stages: ["Interview Scheduled", "Interview Completed"], color: "#5b3fb4" },
-  { label: "Selected & offer", stages: ["Selected", "Offer Released", "Offer Accepted"], color: "#f87171" },
+  { label: "Applied", stages: ["Applied"], color: "#38bdf8" },
+  { label: "HR Screening", stages: ["HR Screening"], color: "#1d6fd8" },
+  { label: "Assessment", stages: ["Assessment"], color: "#8a9bb8" },
+  { label: "Technical Interview", stages: ["Technical Interview"], color: "#5b3fb4" },
+  { label: "Final Interview", stages: ["Final Interview"], color: "#f87171" },
+  { label: "Selected & offer", stages: ["Selected", "Offer Released", "Offer Accepted"], color: "#14b8a6" },
   { label: "Joined", stages: ["Joined"], color: "#10b981" },
   { label: "On hold", stages: ["On Hold"], color: "#fbbf24" },
-  { label: "Closed out", stages: ["Rejected", "Withdrawn", "Did Not Join"], color: "#64748b" },
+  { label: "Rejected", stages: ["Rejected"], color: "#ef4444" },
+  { label: "Withdrawn / did not join", stages: ["Withdrawn", "Did Not Join"], color: "#64748b" },
 ];
 
 const DROP_SLICES = [
