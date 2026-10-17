@@ -23,7 +23,7 @@ export default async function RecruitmentPage() {
       .order("sort_order")
       .order("name"),
     supabase.from("vacancies").select("id, category_id, positions, approval_status"),
-    supabase.from("candidates").select("id, vacancy_id, status").limit(5000),
+    supabase.from("candidates").select("id, vacancy_id, category_id, status").limit(5000),
   ]);
 
   return (

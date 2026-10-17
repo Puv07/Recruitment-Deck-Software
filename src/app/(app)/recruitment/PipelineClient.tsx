@@ -3,18 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Lock, Plus, Search, X } from "lucide-react";
+import { ChevronRight, Lock, Plus, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { DROP_REASONS, SCORE_MAX, SOURCES } from "@/lib/options";
 
-type Vacancy = {
-  id: string;
+export type Scope = {
+  kind: "vacancy" | "category" | "uncategorised" | "all";
   title: string;
-  category_id: string | null;
-  centre_id: string;
-  positions: number;
-  approval_status: string;
+  subtitle: string;
+  slug: string;
+  categoryName: string | null;
+  categoryId: string | null;
+  vacancyId: string | null;
 };
+
 type Cand = {
   id: string;
   full_name: string;
@@ -24,11 +26,16 @@ type Cand = {
   recruiter_id: string | null;
   followup_date: string | null;
   created_at: string;
+  vacancy_id: string | null;
+  position_applied: string | null;
+  location_applied: string | null;
   stage_since: string;
   score: number | null;
 };
+type VacLite = { id: string; title: string; category_id: string | null };
 type Posting = {
   id: string;
+  vacancy_id: string | null;
   platform: string;
   status: string;
   posted_on: string;
@@ -38,40 +45,41 @@ type Posting = {
 };
 type Toast = { ok: boolean; text: string } | null;
 
-   const QUALIFIED = [
-     "Applied",
-     "HR Screening",
-     "Assessment",
-     "Technical Interview",
-     "Final Interview",
-     "Selected",
-     "Offer Released",
-     "Offer Accepted",
-     "Joined",
-     "On Hold",
-   ];
+const QUALIFIED = [
+  "Applied",
+  "HR Screening",
+  "Assessment",
+  "Technical Interview",
+  "Final Interview",
+  "Selected",
+  "Offer Released",
+  "Offer Accepted",
+  "Joined",
+  "On Hold",
+];
 const DISQUALIFIED = ["Rejected", "Withdrawn", "Did Not Join"];
 const OFFER_STAGES = ["Offer Released", "Offer Accepted"];
-   const LOCKED_TARGETS = ["Offer Released", "Joined"];
+const LOCKED_TARGETS = ["Offer Released", "Joined"];
 const REASON_STAGES = ["Rejected", "Withdrawn", "Did Not Join", "On Hold"];
 const REASON_REQUIRED = ["Rejected", "Withdrawn", "Did Not Join"];
 const CLOSED = ["Joined", "Rejected", "Withdrawn", "Did Not Join"];
+const INACTIVE = [...CLOSED, "On Hold"];
 
-   const STAGE_COLOR: Record<string, string> = {
-     Applied: "#64748b",
-     "HR Screening": "#ec4899",
-     Assessment: "#0ea5e9",
-     "Technical Interview": "#f59e0b",
-     "Final Interview": "#14b8a6",
-     Selected: "#3b82f6",
-     "Offer Released": "#8b5cf6",
-     "Offer Accepted": "#6366f1",
-     Joined: "#10b981",
-     "On Hold": "#f97316",
-     Rejected: "#ef4444",
-     Withdrawn: "#94a3b8",
-     "Did Not Join": "#a855f7",
-   };
+const STAGE_COLOR: Record<string, string> = {
+  Applied: "#64748b",
+  "HR Screening": "#ec4899",
+  Assessment: "#0ea5e9",
+  "Technical Interview": "#f59e0b",
+  "Final Interview": "#14b8a6",
+  Selected: "#3b82f6",
+  "Offer Released": "#8b5cf6",
+  "Offer Accepted": "#6366f1",
+  Joined: "#10b981",
+  "On Hold": "#f97316",
+  Rejected: "#ef4444",
+  Withdrawn: "#94a3b8",
+  "Did Not Join": "#a855f7",
+};
 
 const AVATARS = [
   "bg-blue-100 text-blue-700",
@@ -117,23 +125,19 @@ function safeUrl(u: string | null) {
   }
 }
 
-export default function VacancyPipelineClient({
+export default function PipelineClient({
   userId,
   canEdit,
-  vacancy,
-  categoryName,
-  categorySlug,
-  centreName,
+  scope,
   candidates,
+  vacancies,
   postings,
 }: {
   userId: string;
   canEdit: boolean;
-  vacancy: Vacancy;
-  categoryName: string;
-  categorySlug: string | null;
-  centreName: string;
+  scope: Scope;
   candidates: Cand[];
+  vacancies: VacLite[];
   postings: Posting[];
 }) {
   const router = useRouter();
@@ -143,14 +147,15 @@ export default function VacancyPipelineClient({
   const [tab, setTab] = useState<"pipeline" | "list" | "postings">("pipeline");
   const [view, setView] = useState<"qualified" | "disqualified">("qualified");
   const [q, setQ] = useState("");
+  const [vacancyF, setVacancyF] = useState("");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkTarget, setBulkTarget] = useState("HR Screening");
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [pending, setPending] = useState<{ ids: string[]; target: string } | null>(null);
+  const [accepting, setAccepting] = useState<Cand | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-     const [accepting, setAccepting] = useState<Cand | null>(null);
   const [toast, setToast] = useState<Toast>(null);
   const [now, setNow] = useState<number | null>(null);
 
@@ -163,10 +168,25 @@ export default function VacancyPipelineClient({
   }, [toast]);
 
   const today = now === null ? "" : new Date(now).toLocaleDateString("en-CA");
-  const visible = cands.filter((c) => !q || c.full_name.toLowerCase().includes(q.toLowerCase()));
+  const vacancyTitle = (id: string | null) => vacancies.find((v) => v.id === id)?.title ?? null;
+  const positionOf = (c: Cand) => c.position_applied || vacancyTitle(c.vacancy_id) || "-";
+
+  const visible = cands.filter(
+    (c) =>
+      (!q || c.full_name.toLowerCase().includes(q.toLowerCase())) && (!vacancyF || c.vacancy_id === vacancyF)
+  );
   const qualifiedCount = visible.filter((c) => QUALIFIED.includes(c.status)).length;
   const disqualifiedCount = visible.filter((c) => DISQUALIFIED.includes(c.status)).length;
-     const stages = view === "qualified" ? [...QUALIFIED, "Rejected"] : DISQUALIFIED;
+  const stages = view === "qualified" ? [...QUALIFIED, "Rejected"] : DISQUALIFIED;
+
+  const stats = [
+    ["Candidates", cands.length],
+    ["In pipeline", cands.filter((c) => !INACTIVE.includes(c.status)).length],
+    ["Selected", cands.filter((c) => ["Selected", "Offer Released", "Offer Accepted"].includes(c.status)).length],
+    ["Joined", cands.filter((c) => c.status === "Joined").length],
+    ["On hold", cands.filter((c) => c.status === "On Hold").length],
+    ["Rejected", cands.filter((c) => c.status === "Rejected").length],
+  ];
 
   const dragStrip =
     view === "qualified"
@@ -233,15 +253,15 @@ export default function VacancyPipelineClient({
 
   function attemptMove(ids: string[], target: string) {
     if (!canEdit) return;
-           if (target === "Offer Accepted") {
-         if (ids.length !== 1) {
-           setToast({ ok: false, text: "Move candidates to Offer Accepted one at a time, so each gets a joining date." });
-           return;
-         }
-         const only = cands.find((c) => c.id === ids[0]);
-         if (only && only.status !== "Offer Accepted") setAccepting(only);
-         return;
-       }
+    if (target === "Offer Accepted") {
+      if (ids.length !== 1) {
+        setToast({ ok: false, text: "Move candidates to Offer Accepted one at a time, so each gets a joining date." });
+        return;
+      }
+      const only = cands.find((c) => c.id === ids[0]);
+      if (only && only.status !== "Offer Accepted") setAccepting(only);
+      return;
+    }
     if (LOCKED_TARGETS.includes(target)) {
       setToast({
         ok: false,
@@ -277,23 +297,30 @@ export default function VacancyPipelineClient({
 
   const pendingNames = pending ? cands.filter((c) => pending.ids.includes(c.id)).map((c) => c.full_name) : [];
   const pendingHasOffer = pending ? cands.some((c) => pending.ids.includes(c.id) && OFFER_STAGES.includes(c.status)) : false;
+  const showVacancyFilter = scope.kind !== "vacancy" && vacancies.length > 1;
 
   return (
     <div className="mx-auto max-w-full p-4 md:p-8">
-      <Link
-        href={categorySlug ? `/recruitment/${categorySlug}` : "/recruitment"}
-        className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline"
-      >
-        <ArrowLeft className="h-4 w-4" /> {categoryName} vacancies
-      </Link>
+      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-sm text-slate-500">
+        <Link href="/recruitment" className="font-medium text-indigo-600 hover:underline">
+          Recruitment
+        </Link>
+        {scope.kind === "vacancy" && scope.categoryName && (
+          <>
+            <ChevronRight className="h-4 w-4" />
+            <Link href={`/recruitment/${scope.slug}`} className="font-medium text-indigo-600 hover:underline">
+              {scope.categoryName}
+            </Link>
+          </>
+        )}
+        <ChevronRight className="h-4 w-4" />
+        <span className="font-medium text-slate-800">{scope.title}</span>
+      </nav>
 
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{vacancy.title}</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {centreName} - {categoryName} - {vacancy.positions} {vacancy.positions === 1 ? "position" : "positions"} -{" "}
-            <span className="font-medium text-slate-700">{vacancy.approval_status}</span>
-          </p>
+          <h1 className="text-2xl font-semibold text-slate-900">{scope.title}</h1>
+          <p className="mt-1 text-sm text-slate-500">{scope.subtitle}</p>
         </div>
         {canEdit && (
           <button
@@ -305,7 +332,16 @@ export default function VacancyPipelineClient({
         )}
       </div>
 
-      <div className="mt-5 flex gap-6 border-b border-slate-200">
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {stats.map(([label, value]) => (
+          <div key={label as string} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs text-slate-500">{label}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-6 border-b border-slate-200">
         {(
           [
             ["pipeline", "Pipeline"],
@@ -323,6 +359,14 @@ export default function VacancyPipelineClient({
             {label}
           </button>
         ))}
+        {scope.kind !== "vacancy" && (
+          <Link
+            href={`/recruitment/${scope.slug}/vacancies`}
+            className="-mb-px border-b-2 border-transparent pb-2 text-sm font-medium text-slate-500 hover:text-slate-800"
+          >
+            Vacancies
+          </Link>
+        )}
       </div>
 
       {tab === "pipeline" && (
@@ -347,6 +391,19 @@ export default function VacancyPipelineClient({
               </button>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {showVacancyFilter && (
+                <select
+                  value={vacancyF}
+                  onChange={(e) => setVacancyF(e.target.value)}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  aria-label="Filter by vacancy"
+                >
+                  <option value="">All vacancies</option>
+                  {vacancies.map((v) => (
+                    <option key={v.id} value={v.id}>{v.title}</option>
+                  ))}
+                </select>
+              )}
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <input
@@ -426,16 +483,13 @@ export default function VacancyPipelineClient({
                     {locked && <Lock className="h-3.5 w-3.5 text-slate-400" aria-label="Managed in Offers & Joining" />}
                     <span className="text-xs text-slate-500">{items.length}</span>
                   </div>
-                  {isOver && locked && (
-                    <p className="px-2 pb-1 text-xs text-red-600">Managed in Offers &amp; Joining</p>
-                  )}
+                  {isOver && locked && <p className="px-2 pb-1 text-xs text-red-600">Managed in Offers &amp; Joining</p>}
                   <div className="min-h-16 space-y-2">
                     {items.length === 0 && !dragId && <p className="px-2 py-3 text-xs text-slate-400">No candidates</p>}
                     {items.map((c) => {
                       const isSel = selected.includes(c.id);
                       const draggable = canEdit && !selectMode && c.status !== "Joined";
-                      const followDue =
-                        !!c.followup_date && !!today && c.followup_date <= today && !CLOSED.includes(c.status);
+                      const followDue = !!c.followup_date && !!today && c.followup_date <= today && !CLOSED.includes(c.status);
                       return (
                         <div
                           key={c.id}
@@ -466,6 +520,7 @@ export default function VacancyPipelineClient({
                             </span>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-semibold text-slate-900">{c.full_name}</p>
+                              <p className="truncate text-xs text-slate-500">{positionOf(c)}</p>
                               <Link
                                 href={`/candidates?open=${c.id}`}
                                 draggable={false}
@@ -511,8 +566,8 @@ export default function VacancyPipelineClient({
 
           <p className="text-xs text-slate-400">
             Drag a card to another column to change its stage. On a phone or without a mouse, use Select mode. Offer
-            Released, Offer Accepted and Joined are managed in Offers &amp; Joining. Days show how long each candidate has
-            been in their current stage.
+            Released and Joined are managed in Offers &amp; Joining. Dragging to Offer Accepted asks for the joining date.
+            Rejected also appears in the Disqualified view.
           </p>
         </>
       )}
@@ -520,12 +575,14 @@ export default function VacancyPipelineClient({
       {tab === "list" && (
         <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           {cands.length === 0 ? (
-            <p className="p-8 text-center text-sm text-slate-500">No candidates are linked to this vacancy yet.</p>
+            <p className="p-8 text-center text-sm text-slate-500">No candidates are in this view yet.</p>
           ) : (
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-4 py-2 font-medium">Name</th>
+                  <th className="px-4 py-2 font-medium">Position</th>
+                  <th className="px-4 py-2 font-medium">Location applied</th>
                   <th className="px-4 py-2 font-medium">Stage</th>
                   <th className="px-4 py-2 font-medium">In stage</th>
                   <th className="px-4 py-2 font-medium">Source</th>
@@ -541,6 +598,8 @@ export default function VacancyPipelineClient({
                         {c.full_name}
                       </Link>
                     </td>
+                    <td className="px-4 py-3 text-slate-600">{positionOf(c)}</td>
+                    <td className="px-4 py-3 text-slate-600">{c.location_applied ?? "-"}</td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-2 text-slate-700">
                         <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: STAGE_COLOR[c.status] }} />
@@ -563,7 +622,7 @@ export default function VacancyPipelineClient({
         <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           {postings.length === 0 ? (
             <p className="p-8 text-center text-sm text-slate-500">
-              No job postings are linked to this vacancy. Add one in{" "}
+              No job postings are linked here. Add one in{" "}
               <Link href="/postings" className="font-medium text-indigo-600 hover:underline">
                 Job Postings
               </Link>
@@ -574,6 +633,7 @@ export default function VacancyPipelineClient({
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-4 py-2 font-medium">Platform</th>
+                  <th className="px-4 py-2 font-medium">Vacancy</th>
                   <th className="px-4 py-2 font-medium">Posted</th>
                   <th className="px-4 py-2 font-medium">Expires</th>
                   <th className="px-4 py-2 font-medium">Status</th>
@@ -587,6 +647,7 @@ export default function VacancyPipelineClient({
                   return (
                     <tr key={p.id}>
                       <td className="px-4 py-3 font-medium text-slate-900">{p.platform}</td>
+                      <td className="px-4 py-3 text-slate-600">{vacancyTitle(p.vacancy_id) ?? "-"}</td>
                       <td className="px-4 py-3 text-slate-600">{p.posted_on}</td>
                       <td className="px-4 py-3 text-slate-600">{p.expires_on ?? "-"}</td>
                       <td className="px-4 py-3 text-slate-600">{p.status}</td>
@@ -614,7 +675,7 @@ export default function VacancyPipelineClient({
           <span className="text-sm font-medium text-slate-800">{selected.length} selected</span>
           <select value={bulkTarget} onChange={(e) => setBulkTarget(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
             {[...QUALIFIED, ...DISQUALIFIED]
-                 .filter((s) => !LOCKED_TARGETS.includes(s) && s !== "Offer Accepted")
+              .filter((s) => !LOCKED_TARGETS.includes(s) && s !== "Offer Accepted")
               .map((s) => (
                 <option key={s}>{s}</option>
               ))}
@@ -656,21 +717,23 @@ export default function VacancyPipelineClient({
         />
       )}
 
-               {accepting && (
-           <AcceptOfferModal
-             candidate={accepting}
-             onClose={() => setAccepting(null)}
-             onDone={() => {
-               setToast({ ok: true, text: `${accepting.full_name} moved to Offer Accepted. A joining reminder is scheduled.` });
-               setAccepting(null);
-               router.refresh();
-             }}
-           />
-         )}
+      {accepting && (
+        <AcceptOfferModal
+          candidate={accepting}
+          onClose={() => setAccepting(null)}
+          onDone={() => {
+            setToast({ ok: true, text: `${accepting.full_name} moved to Offer Accepted. A joining reminder is scheduled.` });
+            setAccepting(null);
+            router.refresh();
+          }}
+        />
+      )}
+
       {showAdd && (
         <QuickAddModal
           userId={userId}
-          vacancy={vacancy}
+          scope={scope}
+          vacancies={vacancies}
           onClose={() => setShowAdd(false)}
           onDone={() => {
             setShowAdd(false);
@@ -722,9 +785,7 @@ function MoveModal({
 
         {showReason && (
           <>
-            <label className="mt-4 block text-sm font-medium text-slate-700">
-              Reason{required ? "" : " (optional)"}
-            </label>
+            <label className="mt-4 block text-sm font-medium text-slate-700">Reason{required ? "" : " (optional)"}</label>
             <select value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls}>
               <option value="">Select a reason</option>
               {DROP_REASONS.map((r) => (
@@ -754,103 +815,6 @@ function MoveModal({
   );
 }
 
-function QuickAddModal({
-  userId,
-  vacancy,
-  onClose,
-  onDone,
-}: {
-  userId: string;
-  vacancy: Vacancy;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const supabase = useMemo(() => createClient(), []);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [source, setSource] = useState("");
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    setSaving(true);
-    setError("");
-    const { data, error } = await supabase
-      .from("candidates")
-      .insert({
-        full_name: name.trim(),
-        phone: phone.trim() || null,
-        email: email.trim() || null,
-        source: source || null,
-        vacancy_id: vacancy.id,
-        category_id: vacancy.category_id,
-        position_applied: vacancy.title,
-        recruiter_id: userId,
-        status: "Applied",
-      })
-      .select("id")
-      .single();
-    if (error || !data) {
-      setError(error?.message ?? "Could not add the candidate.");
-      setSaving(false);
-      return;
-    }
-    await supabase
-      .from("candidate_stage_history")
-      .insert({ candidate_id: data.id, from_status: null, to_status: "Applied", note: "Candidate added" });
-    onDone();
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Add candidate</h2>
-          <button onClick={onClose} className="rounded p-1 text-slate-500 hover:bg-slate-100" aria-label="Close">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <p className="mt-1 text-xs text-slate-500">For {vacancy.title}. Add the full details later from the Candidates page.</p>
-
-        <label className="mt-4 block text-sm font-medium text-slate-700">Full name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Phone</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Source</label>
-            <select value={source} onChange={(e) => setSource(e.target.value)} className={inputCls}>
-              <option value="">Select</option>
-              {SOURCES.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <label className="mt-3 block text-sm font-medium text-slate-700">Email</label>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
-
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-
-        <div className="mt-6 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Cancel
-          </button>
-          <button
-            onClick={save}
-            disabled={saving || !name.trim()}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Add candidate"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 function AcceptOfferModal({
   candidate,
   onClose,
@@ -959,6 +923,120 @@ function AcceptOfferModal({
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function QuickAddModal({
+  userId,
+  scope,
+  vacancies,
+  onClose,
+  onDone,
+}: {
+  userId: string;
+  scope: Scope;
+  vacancies: VacLite[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [source, setSource] = useState("");
+  const [vacancyId, setVacancyId] = useState(scope.vacancyId ?? "");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    const vac = vacancies.find((v) => v.id === vacancyId);
+    const { data, error } = await supabase
+      .from("candidates")
+      .insert({
+        full_name: name.trim(),
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        source: source || null,
+        vacancy_id: vacancyId || null,
+        category_id: vac?.category_id ?? scope.categoryId,
+        position_applied: vac?.title ?? null,
+        recruiter_id: userId,
+        status: "Applied",
+      })
+      .select("id")
+      .single();
+    if (error || !data) {
+      setError(error?.message ?? "Could not add the candidate.");
+      setSaving(false);
+      return;
+    }
+    await supabase
+      .from("candidate_stage_history")
+      .insert({ candidate_id: data.id, from_status: null, to_status: "Applied", note: "Candidate added" });
+    onDone();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900">Add candidate</h2>
+          <button onClick={onClose} className="rounded p-1 text-slate-500 hover:bg-slate-100" aria-label="Close">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">For {scope.title}. Add the full details later from the Candidates page.</p>
+
+        <label className="mt-4 block text-sm font-medium text-slate-700">Full name</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Phone</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Source</label>
+            <select value={source} onChange={(e) => setSource(e.target.value)} className={inputCls}>
+              <option value="">Select</option>
+              {SOURCES.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <label className="mt-3 block text-sm font-medium text-slate-700">Email</label>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
+
+        {scope.kind !== "vacancy" && (
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Vacancy (optional)</label>
+            <select value={vacancyId} onChange={(e) => setVacancyId(e.target.value)} className={inputCls}>
+              <option value="">None</option>
+              {vacancies.map((v) => (
+                <option key={v.id} value={v.id}>{v.title}</option>
+              ))}
+            </select>
+          </>
+        )}
+
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Cancel
+          </button>
+          <button
+            onClick={save}
+            disabled={saving || !name.trim()}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Add candidate"}
+          </button>
+        </div>
       </div>
     </div>
   );

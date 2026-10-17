@@ -21,7 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Cat = { id: string; name: string; slug: string; sort_order: number };
 type Vac = { id: string; category_id: string | null; positions: number; approval_status: string };
-type Cand = { id: string; vacancy_id: string | null; status: string };
+type Cand = { id: string; vacancy_id: string | null; category_id: string | null; status: string };
 
 const ICONS: Record<string, LucideIcon> = {
   physio: Activity,
@@ -46,14 +46,12 @@ const TONES = [
 ];
 
 const CLOSED = ["Joined", "Rejected", "Withdrawn", "Did Not Join"];
-const RESERVED = ["all", "uncategorised"];
+const RESERVED = ["all", "uncategorised", "vacancy"];
 
 const inputCls =
   "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-200";
 
-function summarise(vacs: Vac[], cands: Cand[]) {
-  const ids = new Set(vacs.map((v) => v.id));
-  const mine = cands.filter((c) => c.vacancy_id && ids.has(c.vacancy_id));
+function summarise(vacs: Vac[], mine: Cand[]) {
   const approved = vacs.filter((v) => v.approval_status === "Approved");
   return {
     openVacancies: approved.length,
@@ -131,18 +129,26 @@ export default function RecruitmentHome({
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
 
-  const uncategorised = vacancies.filter((v) => v.category_id === null);
+  const uncatVacs = vacancies.filter((v) => v.category_id === null);
+  const uncatIds = new Set(uncatVacs.map((v) => v.id));
+  const uncatCands = candidates.filter((c) => !c.category_id && (!c.vacancy_id || uncatIds.has(c.vacancy_id)));
 
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Recruitment</h1>
-          <p className="mt-1 text-sm text-slate-500">Choose a role category to see its vacancies and candidate pipeline.</p>
+          <p className="mt-1 text-sm text-slate-500">Choose a role category to open its candidate pipeline.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link
             href="/recruitment/all"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            All candidates
+          </Link>
+          <Link
+            href="/recruitment/all/vacancies"
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             All vacancies
@@ -163,26 +169,28 @@ export default function RecruitmentHome({
       )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {categories.map((c, i) => (
-          <CategoryCard
-            key={c.id}
-            href={`/recruitment/${c.slug}`}
-            name={c.name}
-            Icon={ICONS[c.slug] ?? Briefcase}
-            tone={TONES[i % TONES.length]}
-            s={summarise(
-              vacancies.filter((v) => v.category_id === c.id),
-              candidates
-            )}
-          />
-        ))}
-        {uncategorised.length > 0 && (
+        {categories.map((c, i) => {
+          const catVacs = vacancies.filter((v) => v.category_id === c.id);
+          const ids = new Set(catVacs.map((v) => v.id));
+          const mine = candidates.filter((x) => x.category_id === c.id || (x.vacancy_id && ids.has(x.vacancy_id)));
+          return (
+            <CategoryCard
+              key={c.id}
+              href={`/recruitment/${c.slug}`}
+              name={c.name}
+              Icon={ICONS[c.slug] ?? Briefcase}
+              tone={TONES[i % TONES.length]}
+              s={summarise(catVacs, mine)}
+            />
+          );
+        })}
+        {(uncatVacs.length > 0 || uncatCands.length > 0) && (
           <CategoryCard
             href="/recruitment/uncategorised"
             name="Uncategorised"
             Icon={Briefcase}
             tone="bg-slate-100 text-slate-700"
-            s={summarise(uncategorised, candidates)}
+            s={summarise(uncatVacs, uncatCands)}
           />
         )}
       </div>
@@ -193,7 +201,8 @@ export default function RecruitmentHome({
         </p>
       )}
       <p className="mt-4 text-xs text-slate-400">
-        Candidate counts include only candidates linked to a vacancy, and only those you are allowed to see.
+        Counts include only candidates you are allowed to see. A candidate belongs to a category through their role
+        category or their vacancy.
       </p>
 
       {showAdd && (
@@ -236,9 +245,7 @@ function AddCategoryModal({
     setSaving(true);
     setError("");
     const next = Math.max(0, ...categories.map((c) => c.sort_order)) + 10;
-    const { error } = await createClient()
-      .from("job_categories")
-      .insert({ name: clean, slug, sort_order: next });
+    const { error } = await createClient().from("job_categories").insert({ name: clean, slug, sort_order: next });
     if (error) {
       setError(error.code === "23505" ? "A category with this name already exists." : error.message);
       setSaving(false);
