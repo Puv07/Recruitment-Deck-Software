@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
-import { SCORE_CRITERIA, SCORE_MAX, SOURCES, type ScoreKey } from "@/lib/options";
+import { SCORE_CRITERIA, SOURCES, currentScoresByCandidate, profileStrength, type ScoreKey } from "@/lib/options";
 
 /* ---------- types ---------- */
 
@@ -495,14 +495,18 @@ export default function DashboardClient({
     if (!cur || e.created_at < cur) joinedAt.set(e.candidate_id, e.created_at);
   }
 
-  /* latest assessment per candidate */
-  const latest = new Map<string, Assess>();
-  for (const a of assessments) if (!latest.has(a.candidate_id)) latest.set(a.candidate_id, a);
-  const scored = Array.from(latest.values()).filter((a) => fIds.has(a.candidate_id));
-  const scoreRows: Row[] = SCORE_CRITERIA.map((crit) => {
-    const vals = scored.map((a) => a[crit.key]).filter((v): v is number => typeof v === "number");
-    return { label: crit.label, value: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0 };
-  }).filter((r) => r.value > 0);
+       /* current scores: the latest value recorded for each criterion, per candidate */
+     const current = currentScoresByCandidate(assessments);
+     const scored = fCands.filter((c) => current.has(c.id));
+     const scoreRows: Row[] = SCORE_CRITERIA.map((crit) => {
+       const vals = scored
+         .map((c) => current.get(c.id)?.[crit.key])
+         .filter((v): v is number => typeof v === "number");
+       return {
+         label: `${crit.label} (out of ${crit.max})`,
+         value: vals.length ? (vals.reduce((s, v) => s + v, 0) / vals.length / crit.max) * 100 : 0,
+       };
+     }).filter((r) => r.value > 0);
 
   /* KPIs */
   const joinedCount = fCands.filter((c) => c.status === "Joined").length;
@@ -579,11 +583,9 @@ export default function DashboardClient({
   const recruiterTable = recruiterIds
     .map((id) => {
       const mine = fCands.filter((c) => c.recruiter_id === id);
-      const vals = mine
-        .map((c) => latest.get(c.id))
-        .filter((a): a is Assess => !!a)
-        .map((a) => averageOf(a))
-        .filter((v): v is number => v !== null);
+               const vals = mine
+           .map((c) => profileStrength(current.get(c.id) ?? {}).percent)
+           .filter((v): v is number => v !== null);
       return {
         name: personName(id),
         total: mine.length,
@@ -736,8 +738,8 @@ export default function DashboardClient({
                   <Panel title="Where candidates drop out" subtitle="Reasons are not recorded yet, so this shows the stage they left from">
                     <Donut slices={dropSlices} centreLabel="candidates" />
                   </Panel>
-                  <Panel title="Average candidate scores" subtitle={`Latest assessment per candidate, out of ${SCORE_MAX} (${scored.length} assessed)`}>
-                    <Bars rows={scoreRows} max={SCORE_MAX} color="#10b981" format={(n) => n.toFixed(1)} />
+                     <Panel title="Average scores by criterion" subtitle={`As a percentage of each criterion's maximum (${scored.length} candidates scored)`}>
+     <Bars rows={scoreRows} max={100} color="#10b981" format={(n) => `${n.toFixed(0)}%`} />
                   </Panel>
                 </div>
               </div>
@@ -783,7 +785,7 @@ export default function DashboardClient({
                               <td className="py-2 text-right text-slate-700">{r.active}</td>
                               <td className="py-2 text-right text-slate-700">{r.joined}</td>
                               <td className="py-2 text-right text-slate-700">{pct(r.joined, r.total)}</td>
-                              <td className="py-2 text-right text-slate-700">{r.score === null ? "-" : `${r.score.toFixed(1)} / ${SCORE_MAX}`}</td>
+                              <td className="py-2 text-right text-slate-700">        {r.score === null ? "-" : `${r.score.toFixed(0)}%`}</td>
                             </tr>
                           ))}
                         </tbody>

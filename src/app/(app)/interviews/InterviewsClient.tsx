@@ -25,6 +25,7 @@ type Person = { id: string; full_name: string | null; email: string | null };
 type EventRow = { id: string; author_id: string; body: string; created_at: string };
 
 const ROUNDS = ["HR Screening", "Assessment", "Technical Interview", "Final Interview"];
+const ROUND_ORDER = ["Applied", "HR Screening", "Assessment", "Technical Interview", "Final Interview"];
 const MODES = ["In person", "Video", "Phone"];
 const STATUSES = ["Scheduled", "Completed", "Cancelled", "No Show"];
 const OUTCOMES = ["Pending", "Recommend", "Do not recommend", "On hold"];
@@ -221,7 +222,6 @@ export default function InterviewsClient({
         <InterviewDrawer
           key={selected.id}
           interview={selected}
-          candidates={candidates}
           people={people}
           personName={personName}
           onClose={() => setSelectedId(null)}
@@ -282,25 +282,25 @@ function NewInterviewModal({
       .from("interview_events")
       .insert({ interview_id: data.id, body: `Interview scheduled for ${fmt(iso)} (${round})` });
 
-    if (["New", "Contacted", "Screening"].includes(cand.status)) {
-       const order = ["Applied", "HR Screening", "Assessment", "Technical Interview", "Final Interview"];
-       const from = order.indexOf(cand.status);
-       const to = order.indexOf(round);
-       if (from !== -1 && to !== -1 && from < to) {
-         const moved = await supabase
-           .from("candidates")
-           .update({ status: round })
-           .eq("id", cand.id)
-           .select("id");
-         if (moved.data && moved.data.length > 0) {
-           await supabase.from("candidate_stage_history").insert({
-             candidate_id: cand.id,
-             from_status: cand.status,
-             to_status: round,
-             note: `${round} scheduled`,
-           });
-         }
-       }
+    // Scheduling a later round moves the candidate forward to that stage (never backwards)
+    const from = ROUND_ORDER.indexOf(cand.status);
+    const to = ROUND_ORDER.indexOf(round);
+    if (from !== -1 && to !== -1 && from < to) {
+      const moved = await supabase
+        .from("candidates")
+        .update({ status: round })
+        .eq("id", cand.id)
+        .select("id");
+      if (moved.data && moved.data.length > 0) {
+        await supabase.from("candidate_stage_history").insert({
+          candidate_id: cand.id,
+          from_status: cand.status,
+          to_status: round,
+          note: `${round} scheduled`,
+        });
+      }
+    }
+
     onDone();
   }
 
@@ -360,7 +360,8 @@ function NewInterviewModal({
         <input value={location} onChange={(e) => setLocation(e.target.value)} className={inputCls} />
 
         <p className="mt-3 text-xs text-slate-500">
-          This records the interview only. It does not email the candidate. If the candidate is still at New, Contacted or Screening, their stage moves to Interview Scheduled.
+          This records the interview only. It does not email the candidate. If the candidate is at an earlier stage than
+          the round you choose, they move forward to that stage.
         </p>
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
@@ -383,13 +384,11 @@ function NewInterviewModal({
 
 function InterviewDrawer({
   interview,
-  candidates,
   people,
   personName,
   onClose,
 }: {
   interview: Interview;
-  candidates: CandLite[];
   people: Person[];
   personName: (id: string | null) => string;
   onClose: () => void;
@@ -470,7 +469,6 @@ function InterviewDrawer({
     }
     await supabase.from("interview_events").insert({ interview_id: iv.id, body: changes.join("; ") });
 
-
     await loadEvents();
     router.refresh();
     setMsg("Saved.");
@@ -549,7 +547,7 @@ function InterviewDrawer({
         <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} rows={4} className={inputCls} />
 
         <p className="mt-2 text-xs text-slate-500">
-          The recommendation is not a hiring decision. Use the Candidates page to select or reject.
+          The recommendation is not a hiring decision. Record the decision for the stage in Candidates, Stage feedback.
         </p>
         {msg && <p className={`mt-3 text-sm ${msg === "Saved." ? "text-green-600" : "text-red-600"}`}>{msg}</p>}
 
@@ -568,7 +566,7 @@ function InterviewDrawer({
             <li key={e.id} className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
               <p>{e.body}</p>
               <p className="mt-1 text-xs text-slate-400">
-                {personName(e.author_id)} - {new Date(e.created_at).toLocaleString()}
+                {personName(e.author_id)} - <span suppressHydrationWarning>{new Date(e.created_at).toLocaleString()}</span>
               </p>
             </li>
           ))}

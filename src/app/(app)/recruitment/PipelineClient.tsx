@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Lock, Plus, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { DROP_REASONS, SCORE_MAX, SOURCES } from "@/lib/options";
+import { DROP_REASONS, SOURCES } from "@/lib/options";
 
 export type Scope = {
   kind: "vacancy" | "category" | "uncategorised" | "all";
@@ -550,7 +550,7 @@ export default function PipelineClient({
                               {followDue && <span className="font-medium text-red-600">Follow-up due</span>}
                               {c.score !== null && (
                                 <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 font-medium text-indigo-700">
-                                  {c.score.toFixed(1)}/{SCORE_MAX}
+                                  {Math.round(c.score)}%
                                 </span>
                               )}
                             </span>
@@ -609,7 +609,7 @@ export default function PipelineClient({
                     <td className="px-4 py-3 text-slate-600">{ago(c.stage_since, now)}</td>
                     <td className="px-4 py-3 text-slate-600">{c.source ?? "-"}</td>
                     <td className="px-4 py-3 text-slate-600">{c.phone ?? "-"}</td>
-                    <td className="px-4 py-3 text-slate-600">{c.score === null ? "-" : `${c.score.toFixed(1)} / ${SCORE_MAX}`}</td>
+                    <td className="px-4 py-3 text-slate-600">   {c.score === null ? "-" : `${Math.round(c.score)}%`}</td>
                   </tr>
                 ))}
               </tbody>
