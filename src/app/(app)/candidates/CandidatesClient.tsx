@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Phone, Plus, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import StageFeedback from "./StageFeedback";
+import StrengthRing from "@/components/StrengthRing";
 import {
   ASSESSMENT_MAX,
   CALL_OUTCOMES,
@@ -660,22 +661,29 @@ export default function CandidatesClient({
                 </p>
                 <div className="space-y-2">
                   {items.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelectedId(c.id)}
-                      className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-indigo-300"
-                    >
-                      <p className="text-sm font-medium text-slate-900">{c.full_name}</p>
-                      <p className="mt-0.5 truncate text-xs text-slate-500">{positionOf(c)}</p>
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        {scoreBadge(c.id)}
-                        {c.followup_date && (
-                          <span className={`text-xs ${followupDue(c) ? "font-medium text-red-600" : "text-slate-400"}`}>
-                            {c.followup_date}
-                          </span>
-                        )}
-                      </div>
-                    </button>
+                       <button
+     key={c.id}
+     onClick={() => setSelectedId(c.id)}
+     className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-indigo-300"
+   >
+     <div className="flex items-start gap-2">
+       <span
+         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarCls(c.full_name)}`}
+       >
+         {initials(c.full_name)}
+       </span>
+       <div className="min-w-0 flex-1">
+         <p className="truncate text-sm font-semibold text-slate-900">{c.full_name}</p>
+         <p className="truncate text-xs text-slate-500">{positionOf(c)}</p>
+       </div>
+       <StrengthRing value={strengthMap.get(c.id) ?? null} />
+     </div>
+     {c.followup_date && (
+       <p className={`mt-2 text-[11px] ${followupDue(c) ? "font-medium text-red-600" : "text-slate-400"}`}>
+         Follow-up {c.followup_date}
+       </p>
+     )}
+   </button>
                   ))}
                 </div>
               </div>
@@ -716,7 +724,7 @@ export default function CandidatesClient({
                       <span className="whitespace-nowrap rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">{c.status}</span>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{c.source ?? "-"}</td>
-                    <td className="px-4 py-3">{scoreBadge(c.id)}</td>
+                    <td className="px-4 py-3"><StrengthRing value={strengthMap.get(c.id) ?? null} size={40} /></td>
                     <td className={`whitespace-nowrap px-4 py-3 ${followupDue(c) ? "font-medium text-red-600" : "text-slate-600"}`}>
                       {c.followup_date ?? "-"}
                     </td>
@@ -1256,15 +1264,15 @@ function CandidateDrawer({
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-slate-200 p-3">
-                <p className="text-xs text-slate-500">Profile strength</p>
-                <p className="mt-1 text-xl font-semibold text-slate-900">
-                  {strength.percent === null ? "Not scored" : `${Math.round(strength.percent)}%`}
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  {strength.scored === 0 ? "No scores yet" : `${strength.points} points, ${strength.scored} of ${strength.total} scored`}
-                </p>
-              </div>
+                 <div className="rounded-xl border border-slate-200 p-3">
+     <p className="text-xs text-slate-500">Profile strength</p>
+     <div className="mt-1 flex items-center gap-3">
+       <StrengthRing value={strength.percent} size={56} />
+       <p className="text-[11px] text-slate-400">
+         {strength.scored === 0 ? "No scores yet" : `${strength.points} of ${strength.scoredMax} points, ${strength.scored} of ${strength.total} scored`}
+       </p>
+     </div>
+   </div>
               <div className="rounded-xl border border-slate-200 p-3">
                 <p className="text-xs text-slate-500">Assessment score</p>
                 <p className="mt-1 text-xl font-semibold text-slate-900">
@@ -1307,9 +1315,9 @@ function CandidateDrawer({
                   {strength.percent === null ? (
                     <span className="text-xl font-semibold text-slate-900">-</span>
                   ) : (
-                    <span className={`rounded-full px-2.5 py-0.5 text-lg font-semibold ${strengthStyle(strength.percent)}`}>
-                      {Math.round(strength.percent)}%
-                    </span>
+                       <div className="mt-1">
+     <StrengthRing value={strength.percent} size={56} />
+   </div>
                   )}
                 </p>
               </div>

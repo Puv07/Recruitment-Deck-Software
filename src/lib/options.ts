@@ -188,23 +188,17 @@ export function latestAssessmentScores<T extends { candidate_id: string; score: 
   return map;
 }
 
-// One profile strength from the scorecard AND the assessment score together.
-export function combinedStrength(values: ScoreValues, assessment: AssessmentScore | null | undefined) {
+// Profile strength comes from the scorecard only (Technical out of 10 and the five HR criteria out of 5).
+// The Assessment-stage score is kept separately and is not part of this percentage.
+export function combinedStrength(
+  values: ScoreValues,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _assessment?: AssessmentScore | null
+) {
   const base = profileStrength(values);
-  const aPoints = assessment ? assessment.score : 0;
-  const aMax = assessment ? assessment.max : 0;
-  const points = base.points + aPoints;
-  const scoredMax = base.scoredMax + aMax;
-  const scored = base.scored + (assessment ? 1 : 0);
-  const total = base.total + 1;
   return {
-    points,
-    scoredMax,
-    scored,
-    total,
-    totalMax: SCORE_TOTAL_MAX + ASSESSMENT_MAX,
-    percent: scoredMax > 0 ? (points / scoredMax) * 100 : null,
-    complete: scored === total,
+    ...base,
+    totalMax: SCORE_TOTAL_MAX,
     scorecard: base,
   };
 }

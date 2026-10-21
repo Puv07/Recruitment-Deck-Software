@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, Lock, Plus, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { DROP_REASONS, SOURCES } from "@/lib/options";
+import StrengthRing from "@/components/StrengthRing";
 
 export type Scope = {
   kind: "vacancy" | "category" | "uncategorised" | "all";
@@ -543,17 +544,11 @@ export default function PipelineClient({
                             {!selectMode && c.status === "Joined" && (
                               <Lock className="mt-1 h-3.5 w-3.5 text-slate-300" aria-label="Joined candidates cannot be moved" />
                             )}
+                            <StrengthRing value={c.score} />
                           </div>
                           <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
                             <span className="text-slate-400">{ago(c.stage_since, now)}</span>
-                            <span className="flex items-center gap-1.5">
-                              {followDue && <span className="font-medium text-red-600">Follow-up due</span>}
-                              {c.score !== null && (
-                                <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 font-medium text-indigo-700">
-                                  {Math.round(c.score)}%
-                                </span>
-                              )}
-                            </span>
+                            {followDue && <span className="font-medium text-red-600">Follow-up due</span>}
                           </div>
                         </div>
                       );
@@ -587,7 +582,7 @@ export default function PipelineClient({
                   <th className="px-4 py-2 font-medium">In stage</th>
                   <th className="px-4 py-2 font-medium">Source</th>
                   <th className="px-4 py-2 font-medium">Phone</th>
-                  <th className="px-4 py-2 font-medium">Score</th>
+                  <th className="px-4 py-2 font-medium">Profile strength</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -609,7 +604,7 @@ export default function PipelineClient({
                     <td className="px-4 py-3 text-slate-600">{ago(c.stage_since, now)}</td>
                     <td className="px-4 py-3 text-slate-600">{c.source ?? "-"}</td>
                     <td className="px-4 py-3 text-slate-600">{c.phone ?? "-"}</td>
-                    <td className="px-4 py-3 text-slate-600">   {c.score === null ? "-" : `${Math.round(c.score)}%`}</td>
+                    <td className="px-4 py-3 text-slate-600">{c.score === null ? "-" : `${Math.round(c.score)}%`}</td>
                   </tr>
                 ))}
               </tbody>
