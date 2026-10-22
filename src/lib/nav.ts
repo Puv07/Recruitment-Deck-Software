@@ -45,7 +45,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Interviews", href: "/interviews", icon: CalendarClock, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "centre_manager"], ready: true },
   { label: "Offers & Joining", href: "/offers", icon: FileSignature, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_operations"], ready: true },
   { label: "Approvals", href: "/approvals", icon: CheckSquare, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_operations", "centre_manager"], ready: true },
-  { label: "Email to Tasks", href: "/email", icon: Mail, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "hr_operations"], ready: false },
+  { label: "Email to Tasks", href: "/email", icon: Mail, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_executive", "hr_operations"], ready: true },
   { label: "Reports & Analytics", href: "/reports", icon: BarChart3, roles: ["super_admin", "hr_head", "recruitment_lead", "hr_operations", "leadership"], ready: false },
   { label: "Administration & Settings", href: "/admin", icon: Settings, roles: ["super_admin"], ready: false },
 ];
